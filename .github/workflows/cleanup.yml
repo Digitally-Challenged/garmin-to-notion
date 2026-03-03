@@ -19,4 +19,4 @@ jobs:
         env:
           NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
           PYTHONPATH: src
-        run: python -m garmin_to_notion cleanup --execute
+        run: python -m health_to_notion cleanup --execute

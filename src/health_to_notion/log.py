@@ -13,6 +13,6 @@ def setup_logging(level: int = logging.INFO) -> None:
     handler = logging.StreamHandler(sys.stdout)
     handler.setFormatter(formatter)
 
-    root = logging.getLogger("garmin_to_notion")
+    root = logging.getLogger("health_to_notion")
     root.setLevel(level)
     root.addHandler(handler)

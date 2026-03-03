@@ -14,8 +14,9 @@ load_dotenv()
 
 @dataclass(frozen=True)
 class Settings:
-    garmin_email: str
-    garmin_password: str
+    strava_client_id: int
+    strava_client_secret: str
+    strava_refresh_token: str
     notion_token: str
     activities_db_id: str | None
     pr_db_id: str | None
@@ -32,9 +33,6 @@ class Settings:
         """Check if all database IDs are configured."""
         return all([
             self.activities_db_id,
-            self.pr_db_id,
-            self.steps_db_id,
-            self.sleep_db_id,
             self.workouts_db_id,
             self.summary_db_id,
         ])
@@ -55,11 +53,11 @@ class Settings:
         return replace(self, **overrides)
 
 
-def load_settings(require_garmin: bool = True) -> Settings:
+def load_settings(require_strava: bool = True) -> Settings:
     """Load and validate all configuration from environment variables."""
     required = ["NOTION_TOKEN"]
-    if require_garmin:
-        required += ["GARMIN_EMAIL", "GARMIN_PASSWORD"]
+    if require_strava:
+        required += ["STRAVA_CLIENT_ID", "STRAVA_CLIENT_SECRET", "STRAVA_REFRESH_TOKEN"]
 
     missing = [var for var in required if not os.getenv(var)]
     if missing:
@@ -71,12 +69,13 @@ def load_settings(require_garmin: bool = True) -> Settings:
     try:
         timezone = ZoneInfo(tz_name)
     except (KeyError, ValueError):
-        print(f"Error: Invalid timezone '{tz_name}'. Use IANA format (e.g. America/Sao_Paulo).")
+        print(f"Error: Invalid timezone '{tz_name}'. Use IANA format (e.g. America/Chicago).")
         sys.exit(1)
 
     return Settings(
-        garmin_email=os.getenv("GARMIN_EMAIL", ""),
-        garmin_password=os.getenv("GARMIN_PASSWORD", ""),
+        strava_client_id=int(os.getenv("STRAVA_CLIENT_ID", "0")),
+        strava_client_secret=os.getenv("STRAVA_CLIENT_SECRET", ""),
+        strava_refresh_token=os.getenv("STRAVA_REFRESH_TOKEN", ""),
         notion_token=os.environ["NOTION_TOKEN"],
         activities_db_id=os.getenv("NOTION_DB_ID"),
         pr_db_id=os.getenv("NOTION_PR_DB_ID"),
@@ -85,6 +84,6 @@ def load_settings(require_garmin: bool = True) -> Settings:
         workouts_db_id=os.getenv("NOTION_WORKOUTS_DB_ID"),
         summary_db_id=os.getenv("NOTION_SUMMARY_DB_ID"),
         timezone=timezone,
-        fetch_limit=int(os.getenv("GARMIN_ACTIVITIES_FETCH_LIMIT", "1000")),
-        days_back=int(os.getenv("GARMIN_DAYS_BACK", "30")),
+        fetch_limit=int(os.getenv("STRAVA_ACTIVITIES_FETCH_LIMIT", "200")),
+        days_back=int(os.getenv("STRAVA_DAYS_BACK", "30")),
     )

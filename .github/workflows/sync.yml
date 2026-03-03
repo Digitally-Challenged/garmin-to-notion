@@ -1,4 +1,4 @@
-name: Garmin to Notion Sync
+name: Health to Notion Sync
 
 on:
   schedule:
@@ -31,11 +31,12 @@ jobs:
 
       - name: Run sync
         env:
-          GARMIN_EMAIL: ${{ secrets.GARMIN_EMAIL }}
-          GARMIN_PASSWORD: ${{ secrets.GARMIN_PASSWORD }}
+          STRAVA_CLIENT_ID: ${{ secrets.STRAVA_CLIENT_ID }}
+          STRAVA_CLIENT_SECRET: ${{ secrets.STRAVA_CLIENT_SECRET }}
+          STRAVA_REFRESH_TOKEN: ${{ secrets.STRAVA_REFRESH_TOKEN }}
           NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
           TIMEZONE: ${{ vars.TIMEZONE || 'UTC' }}
-          GARMIN_DAYS_BACK: ${{ vars.GARMIN_DAYS_BACK || '30' }}
-          GARMIN_ACTIVITIES_FETCH_LIMIT: ${{ vars.GARMIN_ACTIVITIES_FETCH_LIMIT || '1000' }}
+          STRAVA_DAYS_BACK: ${{ vars.STRAVA_DAYS_BACK || '30' }}
+          STRAVA_ACTIVITIES_FETCH_LIMIT: ${{ vars.STRAVA_ACTIVITIES_FETCH_LIMIT || '200' }}
           PYTHONPATH: src
-        run: python -m garmin_to_notion all
+        run: python -m health_to_notion all

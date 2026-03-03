@@ -19,8 +19,8 @@ from datetime import date, timedelta
 
 from notion_client import Client as NotionClient
 
-from garmin_to_notion.config import Settings
-from garmin_to_notion.notion_helpers import fetch_all_pages, get_prop
+from health_to_notion.config import Settings
+from health_to_notion.notion_helpers import fetch_all_pages, get_prop
 
 logger = logging.getLogger(__name__)
 
@@ -88,77 +88,12 @@ def _compute_lifestyle_averages(
     notion: NotionClient,
     settings: Settings,
 ) -> dict[tuple[str, str], dict]:
-    """Compute avg sleep, resting HR, steps, and step goal % per period."""
-    averages: dict[tuple[str, str], dict] = {}
+    """Compute lifestyle averages per period.
 
-    # --- Steps ---
-    if settings.steps_db_id:
-        steps_pages = fetch_all_pages(notion, settings.steps_db_id)
-        steps_by_period: dict[tuple[str, str], list[dict]] = {}
-        for page in steps_pages:
-            props = page["properties"]
-            date_str = get_prop(props, "Date", "date")
-            steps = get_prop(props, "Steps", "number") or 0
-            goal = get_prop(props, "Goal", "number") or 0
-            if not date_str:
-                continue
-            d = date.fromisoformat(date_str[:10])
-            for period, range_fn in [("Month", _month_range), ("Year", _year_range)]:
-                _, _, label = range_fn(d)
-                key = (period, label)
-                steps_by_period.setdefault(key, []).append(
-                    {"steps": steps, "goal": goal}
-                )
-
-        for key, values in steps_by_period.items():
-            total_days = len(values)
-            avg_steps = round(sum(v["steps"] for v in values) / total_days)
-            goal_days = sum(1 for v in values if v["goal"] > 0)
-            goal_hits = sum(
-                1 for v in values if v["goal"] > 0 and v["steps"] >= v["goal"]
-            )
-            goal_pct = round(goal_hits / goal_days * 100) if goal_days > 0 else 0
-
-            bucket = averages.setdefault(key, {})
-            bucket["avg_steps"] = avg_steps
-            bucket["step_goal_pct"] = goal_pct
-
-    # --- Sleep ---
-    if settings.sleep_db_id:
-        sleep_pages = fetch_all_pages(notion, settings.sleep_db_id)
-        sleep_by_period: dict[tuple[str, str], list[dict]] = {}
-        for page in sleep_pages:
-            props = page["properties"]
-            date_str = get_prop(props, "Date", "date")
-            duration_str = get_prop(props, "Duration", "rich_text") or ""
-            resting_hr = get_prop(props, "Resting HR", "number") or 0
-            score = get_prop(props, "Score", "number") or 0
-            if not date_str:
-                continue
-            d = date.fromisoformat(date_str[:10])
-            duration_min = _parse_duration_minutes(duration_str)
-            for period, range_fn in [("Month", _month_range), ("Year", _year_range)]:
-                _, _, label = range_fn(d)
-                key = (period, label)
-                sleep_by_period.setdefault(key, []).append(
-                    {"duration_min": duration_min, "resting_hr": resting_hr, "score": score}
-                )
-
-        for key, values in sleep_by_period.items():
-            durations = [v["duration_min"] for v in values if v["duration_min"] > 0]
-            hrs = [v["resting_hr"] for v in values if v["resting_hr"] > 0]
-
-            scores = [v["score"] for v in values if v["score"] > 0]
-
-            bucket = averages.setdefault(key, {})
-            if durations:
-                bucket["avg_sleep_min"] = sum(durations) / len(durations)
-            if hrs:
-                bucket["avg_resting_hr"] = round(sum(hrs) / len(hrs))
-            if scores:
-                bucket["avg_sleep_score"] = round(sum(scores) / len(scores))
-
-    return averages
+    Currently returns empty data. Will be populated when Withings/Apple Health
+    integration adds sleep and steps data.
+    """
+    return {}
 
 
 def _build_summaries(workouts: list[dict]) -> list[dict]:

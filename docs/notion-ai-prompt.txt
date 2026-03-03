@@ -4,9 +4,9 @@ Create a page called "Fitness Tracker" with the icon 🏋️ and no description.
 
 RIGHT AT THE TOP of the page, before anything else, add a callout block with a 👋 icon and a light warm background. Inside the callout, write this text exactly:
 
-"Hey! I'm Luiz — I built this system to automatically sync Garmin data into Notion. It became such a core part of my routine that I decided to open-source it and share it with everyone.
+"This system automatically syncs your Strava fitness data into Notion. Activities, workouts, and monthly summaries — all kept up to date every 6 hours via GitHub Actions.
 
-Thanks for using Fitness Tracker! If you have feedback, ideas, or just want to say hi — reach out at luiz@flylabs.fun or visit github.com/fly-labs/garmin-to-notion."
+For setup instructions and source code, visit the GitHub repository."
 
 After the callout, add a small empty line for spacing.
 
@@ -113,7 +113,7 @@ Properties:
 - Avg HR (Number, integer)
 - Avg Pace (Rich text)
 - Source (URL)
-- Garmin ID (Number)
+- Strava ID (Number)
 
 Create exactly 4 views:
 
@@ -121,7 +121,7 @@ Create exactly 4 views:
   Filter: Date is on or after 2026-02-01.
   Sort: Date descending.
   Show: Workout, Date, Modality, Intensity, Duration, Distance (km), Calories, Avg HR.
-  Hide: Avg Pace, Source, Garmin ID.
+  Hide: Avg Pace, Source, Strava ID.
 
 - "All Workouts" — Table view. No filter. Sort: Date descending. Show all columns.
 
@@ -199,13 +199,11 @@ Properties:
 - Max HR (Number)
 - Calories (Number)
 - Avg Power (Number)
-- Training Effect (Rich text)
-- Aerobic Effect (Rich text)
-- Anaerobic Effect (Rich text)
-- Steps (Number)
+- Suffer Score (Number, integer)
+- Intensity (Select) — options: Easy (green), Moderate (yellow), Hard (orange), Maximum (red)
 - Day of Week (Select) — options: Monday, Tuesday, Wednesday, Thursday, Friday, Saturday, Sunday
 - Hour Block (Select) — options: 00:00-02:00, 02:00-04:00, 04:00-06:00, 06:00-08:00, 08:00-10:00, 10:00-12:00, 12:00-14:00, 14:00-16:00, 16:00-18:00, 18:00-20:00, 20:00-22:00, 22:00-24:00
-- Garmin ID (Number)
+- Strava ID (Number)
 
 Create exactly 4 views:
 
@@ -213,7 +211,7 @@ Create exactly 4 views:
   Filter: Date is on or after 2026-02-01.
   Sort: Date descending.
   Show: Name, Date, Type, Distance (km), Duration, Avg Pace, Avg HR, Max HR, Calories.
-  Hide: SubType, Avg Power, Training Effect, Aerobic Effect, Anaerobic Effect, Steps, Day of Week, Hour Block, Garmin ID.
+  Hide: SubType, Avg Power, Suffer Score, Intensity, Day of Week, Hour Block, Strava ID.
 
 - "All Activities" — Table view. No filter. Sort: Date descending. Show all columns.
 

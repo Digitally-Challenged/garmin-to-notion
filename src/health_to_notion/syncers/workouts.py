@@ -12,19 +12,13 @@ import logging
 
 from notion_client import Client as NotionClient
 
-from garmin_to_notion.config import Settings
-from garmin_to_notion.mappings import (
-    INTENSITY_FLOOR,
-    INTENSITY_MAP,
-    MODALITY_MAP,
-    NAME_OVERRIDE_MAP,
-    SKIP_TYPES,
-)
-from garmin_to_notion.notion_helpers import fetch_all_pages, get_prop
+from health_to_notion.config import Settings
+from health_to_notion.mappings import INTENSITY_FLOOR, MODALITY_MAP, NAME_OVERRIDE_MAP, SKIP_TYPES
+from health_to_notion.notion_helpers import fetch_all_pages, get_prop
 
 logger = logging.getLogger(__name__)
 
-GARMIN_ACTIVITY_URL = "https://connect.garmin.com/modern/activity/"
+STRAVA_ACTIVITY_URL = "https://www.strava.com/activities/"
 
 
 def _get_modality(
@@ -32,9 +26,12 @@ def _get_modality(
     subactivity_type: str,
     activity_name: str = "",
 ) -> str:
-    """Determine workout modality. Name override > Subtype > Type."""
-    if activity_name and activity_name in NAME_OVERRIDE_MAP:
-        return NAME_OVERRIDE_MAP[activity_name]
+    """Determine workout modality from activity type/name."""
+    if activity_name:
+        name_lower = activity_name.lower()
+        for keyword, override in NAME_OVERRIDE_MAP.items():
+            if keyword.lower() in name_lower:
+                return override
     if subactivity_type and subactivity_type in MODALITY_MAP:
         return MODALITY_MAP[subactivity_type]
     if activity_type and activity_type in MODALITY_MAP:
@@ -42,19 +39,9 @@ def _get_modality(
     return "Other"
 
 
-def _get_intensity(aerobic_effect_rich: str) -> str:
-    """Map aerobic effect rich text to intensity level.
-
-    Parses labels like "3.2 - Highly Impacting" to extract "Highly Impacting".
-    """
-    label = aerobic_effect_rich
-    if " - " in aerobic_effect_rich:
-        label = aerobic_effect_rich.split(" - ", 1)[1]
-    return INTENSITY_MAP.get(label, "Moderate")
-
-
-def _apply_intensity_floor(modality: str, intensity: str) -> str:
-    """Override intensity if below the minimum for certain modalities."""
+def _get_intensity(intensity_str: str | None, modality: str) -> str:
+    """Get intensity from Activities DB, apply floor if needed."""
+    intensity = intensity_str or "Moderate"
     floor = INTENSITY_FLOOR.get(modality)
     if not floor:
         return intensity
@@ -64,32 +51,22 @@ def _apply_intensity_floor(modality: str, intensity: str) -> str:
     return intensity
 
 
-def _get_title(modality: str) -> str:
-    """Always use modality as the workout title.
-
-    This makes Board/Calendar views clean and consistent.
-    Raw activity names are preserved in the Activities database.
-    """
-    return modality
-
-
 def _workout_exists(
     notion: NotionClient,
     db_id: str,
-    garmin_id: int | None,
+    strava_id: int | None,
     date_str: str | None,
     modality: str,
 ) -> dict | None:
-    """Check if a workout already exists by Garmin ID or date+modality."""
-    if garmin_id:
+    """Check if a workout already exists by Strava ID or date+modality."""
+    if strava_id:
         query = notion.databases.query(
             database_id=db_id,
-            filter={"property": "Garmin ID", "number": {"equals": garmin_id}},
+            filter={"property": "Strava ID", "number": {"equals": strava_id}},
         )
         if query["results"]:
             return query["results"][0]
 
-    # Fallback: legacy records matched by date + modality
     if date_str:
         date_only = date_str[:10]
         query2 = notion.databases.query(
@@ -110,7 +87,7 @@ def _workout_exists(
 def _build_properties(activity_page: dict) -> tuple[dict, str, str, str | None, int | None]:
     """Build Workouts properties from an Activities page.
 
-    Returns (properties_dict, title, modality, date_start, garmin_id).
+    Returns (properties_dict, title, modality, date_start, strava_id).
     """
     props = activity_page["properties"]
 
@@ -123,13 +100,12 @@ def _build_properties(activity_page: dict) -> tuple[dict, str, str, str | None, 
     distance = get_prop(props, "Distance (km)", "number")
     avg_pace = get_prop(props, "Avg Pace", "rich_text") or ""
     avg_hr = get_prop(props, "Avg HR", "number")
-    aerobic_effect = get_prop(props, "Aerobic Effect", "rich_text") or "Unknown"
-    garmin_id = get_prop(props, "Garmin ID", "number")
+    intensity_str = get_prop(props, "Intensity", "select")
+    strava_id = get_prop(props, "Strava ID", "number")
 
     modality = _get_modality(activity_type, subactivity_type, activity_name)
-    intensity = _get_intensity(aerobic_effect)
-    intensity = _apply_intensity_floor(modality, intensity)
-    title = _get_title(modality)
+    intensity = _get_intensity(intensity_str, modality)
+    title = modality
 
     workout_props: dict = {
         "Workout": {"title": [{"text": {"content": title}}]},
@@ -154,7 +130,7 @@ def _build_properties(activity_page: dict) -> tuple[dict, str, str, str | None, 
     if avg_hr and avg_hr > 0:
         workout_props["Avg HR"] = {"number": round(avg_hr)}
 
-    return workout_props, title, modality, date_start, garmin_id
+    return workout_props, title, modality, date_start, strava_id
 
 
 def sync_workouts(notion: NotionClient, settings: Settings) -> None:
@@ -178,20 +154,20 @@ def sync_workouts(notion: NotionClient, settings: Settings) -> None:
             skipped += 1
             continue
 
-        workout_props, title, modality, date_start, garmin_id = _build_properties(activity)
+        workout_props, title, modality, date_start, strava_id = _build_properties(activity)
         existing = _workout_exists(
-            notion, settings.workouts_db_id, garmin_id, date_start, modality
+            notion, settings.workouts_db_id, strava_id, date_start, modality
         )
 
         if existing:
             notion.pages.update(page_id=existing["id"], properties=workout_props)
             updated += 1
         else:
-            if garmin_id:
+            if strava_id:
                 workout_props["Source"] = {
-                    "url": f"{GARMIN_ACTIVITY_URL}{garmin_id}"
+                    "url": f"{STRAVA_ACTIVITY_URL}{strava_id}"
                 }
-                workout_props["Garmin ID"] = {"number": garmin_id}
+                workout_props["Strava ID"] = {"number": strava_id}
             notion.pages.create(
                 parent={"database_id": settings.workouts_db_id},
                 properties=workout_props,

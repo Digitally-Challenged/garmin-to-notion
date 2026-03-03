@@ -12,8 +12,8 @@ from collections import defaultdict
 
 from notion_client import Client as NotionClient
 
-from garmin_to_notion.config import Settings
-from garmin_to_notion.notion_helpers import fetch_all_pages, get_prop
+from health_to_notion.config import Settings
+from health_to_notion.notion_helpers import fetch_all_pages, get_prop
 
 logger = logging.getLogger(__name__)
 
