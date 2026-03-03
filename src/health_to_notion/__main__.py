@@ -33,7 +33,7 @@ def main() -> None:
         default="all",
         choices=[
             "all", "activities", "records", "steps", "sleep",
-            "workouts", "summary", "cleanup", "auth",
+            "workouts", "body", "summary", "cleanup", "auth",
         ],
         help="Which sync to run (default: all)",
     )
@@ -97,6 +97,14 @@ def main() -> None:
         sync_summary(notion, settings)
         return
 
+    if args.command == "body":
+        from health_to_notion.clients import init_notion_only
+        from health_to_notion.syncers.body_composition import sync_body_composition
+
+        notion = init_notion_only(settings)
+        sync_body_composition(notion, settings)
+        return
+
     # Stub commands
     if args.command in ("records", "steps", "sleep"):
         from health_to_notion.syncers.personal_records import sync_personal_records
@@ -113,6 +121,7 @@ def main() -> None:
 
     from health_to_notion.clients import init_clients
     from health_to_notion.syncers.activities import sync_activities
+    from health_to_notion.syncers.body_composition import sync_body_composition
     from health_to_notion.syncers.summary import sync_summary
     from health_to_notion.syncers.workouts import sync_workouts
 
@@ -121,12 +130,14 @@ def main() -> None:
     sync_map = {
         "activities": lambda: sync_activities(clients.strava, clients.notion, settings),
         "workouts": lambda: sync_workouts(clients.notion, settings),
+        "body": lambda: sync_body_composition(clients.notion, settings),
         "summary": lambda: sync_summary(clients.notion, settings),
     }
 
     db_check = {
         "activities": settings.activities_db_id,
         "workouts": settings.workouts_db_id,
+        "body": settings.body_db_id,
         "summary": settings.summary_db_id,
     }
 

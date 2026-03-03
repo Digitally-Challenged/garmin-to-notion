@@ -15,9 +15,10 @@ pip install -e .
 PYTHONPATH=src python -m health_to_notion <command>
 
 # CLI commands
-python -m health_to_notion              # Run all syncs (activities, workouts, summary)
+python -m health_to_notion              # Run all syncs (activities, workouts, body, summary)
 python -m health_to_notion activities   # Sync Strava activities to Activities DB
 python -m health_to_notion workouts     # Transform Activities DB to Workouts DB
+python -m health_to_notion body         # Sync Withings body composition to Body Composition DB
 python -m health_to_notion summary      # Aggregate Workouts into monthly/yearly summaries
 python -m health_to_notion cleanup      # Deduplicate workouts (dry run)
 python -m health_to_notion cleanup --execute  # Actually remove duplicates
@@ -47,6 +48,13 @@ Copy `.env.example` to `.env` and fill in values.
 **Optional — Database IDs** (auto-discovered via `discover_databases()` if not set):
 - `NOTION_DB_ID`, `NOTION_PR_DB_ID`, `NOTION_STEPS_DB_ID`
 - `NOTION_SLEEP_DB_ID`, `NOTION_WORKOUTS_DB_ID`, `NOTION_SUMMARY_DB_ID`
+- `NOTION_BODY_DB_ID`
+
+**Optional — Withings OAuth:**
+- `WITHINGS_CLIENT_ID`
+- `WITHINGS_CLIENT_SECRET`
+- `WITHINGS_REFRESH_TOKEN`
+- `WITHINGS_REDIRECT_URI` (default: `http://localhost:8791/callback`)
 
 **Optional — Settings:**
 - `TIMEZONE` (default: `UTC`)
@@ -67,14 +75,16 @@ src/health_to_notion/
     notion_helpers.py       # Shared Notion utilities (fetch_all_pages, get_prop, discover_databases)
     formatters.py           # Strava data → Notion display values
     mappings.py             # Activity type → emoji, modality, intensity maps
+    withings_client.py      # Withings OAuth token refresh + API wrapper (POST /measure)
     syncers/
         __init__.py
         activities.py       # Strava → Activities DB
         workouts.py         # Activities DB → Workouts DB
         summary.py          # Workouts DB → Summary DB (month/year aggregations)
-        personal_records.py # Stub (future: Withings/Apple Health)
-        daily_steps.py      # Stub (future: Withings/Apple Health)
-        sleep.py            # Stub (future: Withings/Apple Health)
+        body_composition.py # Withings → Body Composition DB (weight, fat %, muscle mass)
+        personal_records.py # Stub (future: Apple Health)
+        daily_steps.py      # Stub (future: Apple Health)
+        sleep.py            # Stub (future: Apple Health)
     tools/
         cleanup_duplicates.py  # Deduplicate Workouts DB entries
         auth.py                # Strava OAuth helper
@@ -87,15 +97,16 @@ docs/
     notion-template-setup.md    # Manual setup guide for the Notion workspace
 ```
 
-**Data flow:** Strava API → Activities DB → Workouts DB → Summary DB
+**Data flow:** Strava API → Activities DB → Workouts DB → Summary DB; Withings API → Body Composition DB
 
-**Target Notion workspace (6 inline databases):**
+**Target Notion workspace (7 inline databases):**
 - `Activity Summary` — monthly/yearly aggregations per modality
 - `Workouts` — cleaned workout entries derived from Activities
-- `Daily Steps` — step count per day (stub; future Withings/Apple Health)
-- `Sleep` — sleep duration and score per night (stub; future Withings/Apple Health)
+- `Body Composition` — daily weight, fat %, muscle mass from Withings Body+
+- `Daily Steps` — step count per day (stub; future Apple Health)
+- `Sleep` — sleep duration and score per night (stub; future Apple Health)
 - `Activities` — raw Strava activities
-- `Personal Records` — PRs (stub; future Withings/Apple Health)
+- `Personal Records` — PRs (stub; future Apple Health)
 <!-- END AUTO-MANAGED -->
 
 <!-- AUTO-MANAGED: conventions -->
@@ -110,6 +121,8 @@ docs/
 - Activities DB writes heatmap properties: `Day of Week` (select) and `Hour Block` (select, 2-hour blocks e.g. `"06:00-08:00"`)
 - `getattr` with defaults for `DetailedActivity`-only fields (calories, suffer_score) to stay compatible with `SummaryActivity`
 - Stub syncers for records/steps/sleep just return — do not raise, do not log "not implemented" as error
+- Withings body comp dedup: query Notion by date before creating; one entry per calendar day (keep first reading, skip subsequent)
+- Withings API response values decoded as `value * 10^unit`; only sync groups with all 3 fields (weight + fat % + muscle mass)
 - `init_notion_only()` for cleanup/summary/stubs; `init_clients()` only when Strava is needed
 - DB IDs are optional env vars; missing ones are auto-discovered via `notion_helpers.discover_databases()`
 - `PYTHONPATH=src` required when running directly (not installed); set automatically in GitHub Actions
@@ -122,7 +135,8 @@ docs/
 - **Intensity:** Derived from `suffer_score` (Relative Effort) via `SUFFER_SCORE_THRESHOLDS`; `INTENSITY_FLOOR` enforces minimums per modality (e.g. HIIT/BJJ/Crossfit floor at Moderate)
 - **Modality:** `MODALITY_MAP` for sport_type; `NAME_OVERRIDE_MAP` for name-based overrides (BJJ, Boxing, Sauna tagged as "Workout" in Strava)
 - **Summary aggregation:** Per period (Month/Year): one "All" row + one row per modality; keyed by Start date + Period + Modality
-- **Sleep/steps/PRs:** Stubs reserved for future Withings/Apple Health integration; lifestyle fields (Avg Sleep, Avg Steps, etc.) already present in Summary DB schema
+- **Withings body comp:** Active integration via `withings_client.py`; OAuth 2.0 token refresh (access tokens last 3 hours, refresh tokens last 1 year; each refresh returns a new refresh token); meastypes=1,6,76 (Weight, Fat %, Muscle Mass)
+- **Sleep/steps/PRs:** Stubs reserved for future Apple Health integration; Withings does not expose sleep/steps from Apple Health sync; lifestyle fields (Avg Sleep, Avg Steps, etc.) already present in Summary DB schema
 - **No abstraction layers:** Direct field mapping from Strava model attributes to Notion properties
 - **Bulk prefetch over N+1:** Syncers call `_prefetch_existing_ids()` / `_prefetch_workout_ids()` once at startup to load all existing Strava IDs into memory; per-record existence checks use dict/set lookups instead of Notion API calls
 <!-- END AUTO-MANAGED -->

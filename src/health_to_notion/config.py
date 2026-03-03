@@ -24,6 +24,10 @@ class Settings:
     sleep_db_id: str | None
     workouts_db_id: str | None
     summary_db_id: str | None
+    body_db_id: str | None
+    withings_client_id: str
+    withings_client_secret: str
+    withings_refresh_token: str
     timezone: ZoneInfo
     fetch_limit: int
     days_back: int
@@ -43,6 +47,7 @@ class Settings:
         for field in (
             "activities_db_id", "pr_db_id", "steps_db_id",
             "sleep_db_id", "workouts_db_id", "summary_db_id",
+            "body_db_id",
         ):
             current = getattr(self, field)
             if not current and field in discovered:
@@ -83,6 +88,10 @@ def load_settings(require_strava: bool = True) -> Settings:
         sleep_db_id=os.getenv("NOTION_SLEEP_DB_ID"),
         workouts_db_id=os.getenv("NOTION_WORKOUTS_DB_ID"),
         summary_db_id=os.getenv("NOTION_SUMMARY_DB_ID"),
+        body_db_id=os.getenv("NOTION_BODY_DB_ID"),
+        withings_client_id=os.getenv("WITHINGS_CLIENT_ID", ""),
+        withings_client_secret=os.getenv("WITHINGS_CLIENT_SECRET", ""),
+        withings_refresh_token=os.getenv("WITHINGS_REFRESH_TOKEN", ""),
         timezone=timezone,
         fetch_limit=int(os.getenv("STRAVA_ACTIVITIES_FETCH_LIMIT", "200")),
         days_back=int(os.getenv("STRAVA_DAYS_BACK", "30")),
