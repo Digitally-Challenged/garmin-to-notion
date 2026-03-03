@@ -104,8 +104,8 @@ docs/
 - `Settings` is a frozen dataclass in `config.py`; all env vars loaded there via `load_settings()`
 - `require_strava=False` in `load_settings()` for commands that only need Notion (cleanup, summary, stubs)
 - Syncers read from one source and write to one target; never mix sources in the same syncer call
-- Deduplication: query Notion by `Strava ID` number property filter before creating; always update (never skip) if the page already exists
-- Emoji icon is set on both `pages.create` and `pages.update` — never left unset after an upsert
+- Deduplication: bulk-prefetch all existing Strava IDs at the start of each sync (`_prefetch_existing_ids` / `_prefetch_workout_ids`) to avoid N+1 Notion queries; existing entries are skipped (not updated)
+- Emoji icon is set on `pages.create` — icon is not re-applied on skip (no update path)
 - `_get_icon_emoji` applies name-based overrides for combat sports (BJJ/jiu-jitsu/MMA, boxing/kickboxing) before falling back to `ACTIVITY_EMOJIS` sport_type lookup
 - Activities DB writes heatmap properties: `Day of Week` (select) and `Hour Block` (select, 2-hour blocks e.g. `"06:00-08:00"`)
 - `getattr` with defaults for `DetailedActivity`-only fields (calories, suffer_score) to stay compatible with `SummaryActivity`
@@ -124,4 +124,5 @@ docs/
 - **Summary aggregation:** Per period (Month/Year): one "All" row + one row per modality; keyed by Start date + Period + Modality
 - **Sleep/steps/PRs:** Stubs reserved for future Withings/Apple Health integration; lifestyle fields (Avg Sleep, Avg Steps, etc.) already present in Summary DB schema
 - **No abstraction layers:** Direct field mapping from Strava model attributes to Notion properties
+- **Bulk prefetch over N+1:** Syncers call `_prefetch_existing_ids()` / `_prefetch_workout_ids()` once at startup to load all existing Strava IDs into memory; per-record existence checks use dict/set lookups instead of Notion API calls
 <!-- END AUTO-MANAGED -->
