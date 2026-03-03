@@ -54,7 +54,6 @@ Copy `.env.example` to `.env` and fill in values.
 - `WITHINGS_CLIENT_ID`
 - `WITHINGS_CLIENT_SECRET`
 - `WITHINGS_REFRESH_TOKEN`
-- `WITHINGS_REDIRECT_URI` (default: `http://localhost:8791/callback`)
 
 **Optional — Settings:**
 - `TIMEZONE` (default: `UTC`)
