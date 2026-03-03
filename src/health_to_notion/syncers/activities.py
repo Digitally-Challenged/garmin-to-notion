@@ -111,6 +111,22 @@ def _activity_exists(
     return query["results"][0] if query["results"] else None
 
 
+def _prefetch_existing_ids(
+    notion: NotionClient,
+    database_id: str,
+) -> dict[int, str]:
+    """Bulk-fetch all existing Strava IDs from Notion. Returns {strava_id: page_id}."""
+    from health_to_notion.notion_helpers import fetch_all_pages, get_prop
+
+    pages = fetch_all_pages(notion, database_id)
+    result: dict[int, str] = {}
+    for page in pages:
+        sid = get_prop(page["properties"], "Strava ID", "number")
+        if sid:
+            result[int(sid)] = page["id"]
+    return result
+
+
 def sync_activities(
     strava: StravaClient,
     notion: NotionClient,
@@ -120,6 +136,11 @@ def sync_activities(
     if not settings.activities_db_id:
         logger.info("No activities database configured, skipping")
         return
+
+    # Pre-fetch existing Strava IDs in one bulk query (avoids N+1)
+    logger.info("Pre-fetching existing activities from Notion...")
+    existing_map = _prefetch_existing_ids(notion, settings.activities_db_id)
+    logger.info("Found %d existing activities in Notion", len(existing_map))
 
     after_date = datetime.now(settings.timezone) - timedelta(days=settings.days_back)
     activities = list(strava.get_activities(
@@ -134,17 +155,10 @@ def sync_activities(
         strava_id = activity.id
         sport_type = str(activity.sport_type) if activity.sport_type else "Workout"
 
-        existing = _activity_exists(notion, settings.activities_db_id, strava_id)
+        existing_page_id = existing_map.get(strava_id)
 
-        if existing:
-            props = _build_properties(activity, settings)
-            emoji = _get_icon_emoji(sport_type, activity.name or "")
-            notion.pages.update(
-                page_id=existing["id"],
-                properties=props,
-                icon={"emoji": emoji},
-            )
-            updated += 1
+        if existing_page_id:
+            skipped += 1
         else:
             props = _build_properties(activity, settings)
             emoji = _get_icon_emoji(sport_type, activity.name or "")
@@ -154,6 +168,8 @@ def sync_activities(
                 icon={"emoji": emoji},
             )
             created += 1
+            if created % 50 == 0:
+                logger.info("Progress: %d created so far...", created)
 
     logger.info(
         "Activities sync complete: %d created, %d updated, %d unchanged",

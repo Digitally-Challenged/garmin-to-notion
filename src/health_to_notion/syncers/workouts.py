@@ -133,17 +133,36 @@ def _build_properties(activity_page: dict) -> tuple[dict, str, str, str | None, 
     return workout_props, title, modality, date_start, strava_id
 
 
+def _prefetch_workout_ids(
+    notion: NotionClient,
+    database_id: str,
+) -> set[int]:
+    """Bulk-fetch all existing Strava IDs from Workouts DB."""
+    pages = fetch_all_pages(notion, database_id)
+    result: set[int] = set()
+    for page in pages:
+        sid = get_prop(page["properties"], "Strava ID", "number")
+        if sid:
+            result.add(int(sid))
+    return result
+
+
 def sync_workouts(notion: NotionClient, settings: Settings) -> None:
     """Sync Activities database entries to the Workouts database."""
     if not settings.workouts_db_id:
         logger.info("No workouts database configured, skipping")
         return
 
+    # Pre-fetch existing workout Strava IDs (avoids N+1)
+    logger.info("Pre-fetching existing workouts from Notion...")
+    existing_ids = _prefetch_workout_ids(notion, settings.workouts_db_id)
+    logger.info("Found %d existing workouts in Notion", len(existing_ids))
+
     logger.info("Fetching activities from Activities database...")
     activities = fetch_all_pages(notion, settings.activities_db_id)
     logger.info("Found %d activities", len(activities))
 
-    created, updated, skipped = 0, 0, 0
+    created, skipped = 0, 0
 
     for activity in activities:
         props = activity["properties"]
@@ -155,26 +174,25 @@ def sync_workouts(notion: NotionClient, settings: Settings) -> None:
             continue
 
         workout_props, title, modality, date_start, strava_id = _build_properties(activity)
-        existing = _workout_exists(
-            notion, settings.workouts_db_id, strava_id, date_start, modality
-        )
 
-        if existing:
-            notion.pages.update(page_id=existing["id"], properties=workout_props)
-            updated += 1
-        else:
-            if strava_id:
-                workout_props["Source"] = {
-                    "url": f"{STRAVA_ACTIVITY_URL}{strava_id}"
-                }
-                workout_props["Strava ID"] = {"number": strava_id}
-            notion.pages.create(
-                parent={"database_id": settings.workouts_db_id},
-                properties=workout_props,
-            )
-            created += 1
+        if strava_id and strava_id in existing_ids:
+            skipped += 1
+            continue
+
+        if strava_id:
+            workout_props["Source"] = {
+                "url": f"{STRAVA_ACTIVITY_URL}{strava_id}"
+            }
+            workout_props["Strava ID"] = {"number": strava_id}
+        notion.pages.create(
+            parent={"database_id": settings.workouts_db_id},
+            properties=workout_props,
+        )
+        created += 1
+        if created % 50 == 0:
+            logger.info("Progress: %d workouts created so far...", created)
 
     logger.info(
-        "Workouts sync complete: %d created, %d updated, %d skipped",
-        created, updated, skipped,
+        "Workouts sync complete: %d created, %d skipped",
+        created, skipped,
     )
