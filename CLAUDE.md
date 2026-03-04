@@ -54,6 +54,7 @@ Copy `.env.example` to `.env` and fill in values.
 - `WITHINGS_CLIENT_ID`
 - `WITHINGS_CLIENT_SECRET`
 - `WITHINGS_REFRESH_TOKEN`
+- `WITHINGS_REDIRECT_URI` (used during OAuth setup; default: `http://localhost:8791/callback`)
 
 **Optional — Settings:**
 - `TIMEZONE` (default: `UTC`)
@@ -92,7 +93,7 @@ src/health_to_notion/
     cleanup.yml             # Manual trigger: python -m health_to_notion cleanup --execute
 docs/
     notion-ai-prompt.txt        # Notion AI prompt to scaffold the full Fitness Tracker workspace
-    notion-ai-update-prompt.txt # Notion AI prompt for updating an existing workspace
+    notion-ai-update-prompt.txt # Notion AI prompt to add chart/table views to existing databases (15 views across Body Composition, Workouts, Activities, Activity Summary)
     notion-template-setup.md    # Manual setup guide for the Notion workspace
 ```
 
@@ -114,8 +115,8 @@ docs/
 - `Settings` is a frozen dataclass in `config.py`; all env vars loaded there via `load_settings()`
 - `require_strava=False` in `load_settings()` for commands that only need Notion (cleanup, summary, stubs)
 - Syncers read from one source and write to one target; never mix sources in the same syncer call
-- Deduplication: bulk-prefetch all existing Strava IDs at the start of each sync (`_prefetch_existing_ids` / `_prefetch_workout_ids`) to avoid N+1 Notion queries; existing entries are skipped (not updated)
-- Emoji icon is set on `pages.create` — icon is not re-applied on skip (no update path)
+- Deduplication: bulk-prefetch all existing Strava IDs at the start of each sync (`_prefetch_existing_ids` / `_prefetch_workout_ids`) to avoid N+1 Notion queries; Activities syncer updates existing entries on re-sync; Workouts syncer skips existing entries
+- Emoji icon is set on both `pages.create` and `pages.update` for activities; body composition icon set only on create
 - `_get_icon_emoji` applies name-based overrides for combat sports (BJJ/jiu-jitsu/MMA, boxing/kickboxing) before falling back to `ACTIVITY_EMOJIS` sport_type lookup
 - Activities DB writes heatmap properties: `Day of Week` (select) and `Hour Block` (select, 2-hour blocks e.g. `"06:00-08:00"`)
 - `getattr` with defaults for `DetailedActivity`-only fields (calories, suffer_score) to stay compatible with `SummaryActivity`
