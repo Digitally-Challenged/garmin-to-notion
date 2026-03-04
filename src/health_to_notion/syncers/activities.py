@@ -30,7 +30,7 @@ def _build_properties(activity: object, settings: Settings) -> dict:
     meters (float), moving_time in seconds (int), average_speed in m/s (float).
     """
     name = activity.name or "Unnamed Activity"
-    sport_type = str(activity.sport_type) if activity.sport_type else "Workout"
+    sport_type = activity.sport_type.root if activity.sport_type else "Workout"
     main_type, subtype = format_sport_type(sport_type, name)
 
     # Parse local datetime
@@ -153,15 +153,23 @@ def sync_activities(
 
     for activity in activities:
         strava_id = activity.id
-        sport_type = str(activity.sport_type) if activity.sport_type else "Workout"
+        sport_type = activity.sport_type.root if activity.sport_type else "Workout"
 
         existing_page_id = existing_map.get(strava_id)
 
+        props = _build_properties(activity, settings)
+        emoji = _get_icon_emoji(sport_type, activity.name or "")
+
         if existing_page_id:
-            skipped += 1
+            notion.pages.update(
+                page_id=existing_page_id,
+                properties=props,
+                icon={"emoji": emoji},
+            )
+            updated += 1
+            if updated % 100 == 0:
+                logger.info("Progress: %d updated so far...", updated)
         else:
-            props = _build_properties(activity, settings)
-            emoji = _get_icon_emoji(sport_type, activity.name or "")
             notion.pages.create(
                 parent={"database_id": settings.activities_db_id},
                 properties=props,

@@ -89,11 +89,12 @@ def get_body_measurements(
             continue
         seen_dates.add(date_key)
 
+        kg_to_lbs = 2.20462
         results.append({
             "date": date_key,
-            "weight": round(measures[WEIGHT], 1),
+            "weight": round(measures[WEIGHT] * kg_to_lbs, 1),
             "fat_pct": round(measures[FAT_RATIO], 1),
-            "muscle_mass": round(measures[MUSCLE_MASS], 1),
+            "muscle_mass": round(measures[MUSCLE_MASS] * kg_to_lbs, 1),
         })
 
     logger.info("Filtered to %d unique daily measurements", len(results))

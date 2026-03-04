@@ -33,11 +33,11 @@ def _prefetch_existing_dates(
 def _build_properties(measurement: dict) -> dict:
     """Build Notion properties from a body composition measurement."""
     return {
-        "Name": {"title": [{"text": {"content": f"{measurement['weight']} kg"}}]},
+        "Name": {"title": [{"text": {"content": f"{measurement['weight']} lbs"}}]},
         "Date": {"date": {"start": measurement["date"]}},
-        "Weight (kg)": {"number": measurement["weight"]},
+        "Weight (lbs)": {"number": measurement["weight"]},
         "Fat %": {"number": measurement["fat_pct"]},
-        "Muscle Mass (kg)": {"number": measurement["muscle_mass"]},
+        "Muscle Mass (lbs)": {"number": measurement["muscle_mass"]},
     }
 
 

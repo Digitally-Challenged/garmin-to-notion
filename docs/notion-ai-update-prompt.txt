@@ -10,7 +10,7 @@ Add these 4 views:
   Chart type: Line.
   Filter: Date is not empty.
   X-axis: Date.
-  Y-axis: Weight (kg) (Number property, NOT "Count").
+  Y-axis: Weight (lbs) (Number property, NOT "Count").
   Sort: ascending (oldest on left).
   Style: medium height, smooth line, gradient area fill, show data labels, show grid lines.
 
@@ -26,7 +26,7 @@ Add these 4 views:
   Chart type: Line.
   Filter: Date is not empty.
   X-axis: Date.
-  Y-axis: Muscle Mass (kg) (Number property).
+  Y-axis: Muscle Mass (lbs) (Number property).
   Sort: ascending.
   Style: medium height, smooth line, gradient area fill, show data labels.
 
