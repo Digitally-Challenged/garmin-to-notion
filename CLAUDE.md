@@ -115,7 +115,7 @@ docs/
 - `Settings` is a frozen dataclass in `config.py`; all env vars loaded there via `load_settings()`
 - `require_strava=False` in `load_settings()` for commands that only need Notion (cleanup, summary, stubs)
 - Syncers read from one source and write to one target; never mix sources in the same syncer call
-- Deduplication: bulk-prefetch all existing Strava IDs at the start of each sync (`_prefetch_existing_ids` / `_prefetch_workout_ids`) to avoid N+1 Notion queries; Activities syncer updates existing entries on re-sync; Workouts syncer skips existing entries
+- Deduplication: bulk-prefetch all existing Strava IDs at the start of each sync (`_prefetch_existing_ids` / `_prefetch_workout_ids`) to avoid N+1 Notion queries; both return `dict[int, str]` (strava_id → page_id); both Activities and Workouts syncers update existing entries on re-sync; `Source` and `Strava ID` properties are only set on create, not update
 - Emoji icon is set on both `pages.create` and `pages.update` for activities; body composition icon set only on create
 - `_get_icon_emoji` applies name-based overrides for combat sports (BJJ/jiu-jitsu/MMA, boxing/kickboxing) before falling back to `ACTIVITY_EMOJIS` sport_type lookup
 - Activities DB writes heatmap properties: `Day of Week` (select) and `Hour Block` (select, 2-hour blocks e.g. `"06:00-08:00"`)
@@ -138,5 +138,5 @@ docs/
 - **Withings body comp:** Active integration via `withings_client.py`; OAuth 2.0 token refresh (access tokens last 3 hours, refresh tokens last 1 year; each refresh returns a new refresh token); meastypes=1,6,76 (Weight, Fat %, Muscle Mass)
 - **Sleep/steps/PRs:** Stubs reserved for future Apple Health integration; Withings does not expose sleep/steps from Apple Health sync; lifestyle fields (Avg Sleep, Avg Steps, etc.) already present in Summary DB schema
 - **No abstraction layers:** Direct field mapping from Strava model attributes to Notion properties
-- **Bulk prefetch over N+1:** Syncers call `_prefetch_existing_ids()` / `_prefetch_workout_ids()` once at startup to load all existing Strava IDs into memory; per-record existence checks use dict/set lookups instead of Notion API calls
+- **Bulk prefetch over N+1:** Syncers call `_prefetch_existing_ids()` / `_prefetch_workout_ids()` once at startup; both return `dict[int, str]` (strava_id → page_id) enabling update-or-create without per-record Notion API calls
 <!-- END AUTO-MANAGED -->

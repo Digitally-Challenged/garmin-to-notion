@@ -10,6 +10,7 @@ from health_to_notion.config import Settings
 from health_to_notion.notion_helpers import fetch_all_pages, get_prop
 from health_to_notion.withings_client import (
     get_body_measurements,
+    persist_refresh_token,
     refresh_access_token,
 )
 
@@ -66,10 +67,9 @@ def sync_body_composition(
     logger.info("Withings authentication successful")
 
     if new_refresh_token != settings.withings_refresh_token:
-        logger.warning(
-            "Withings issued a new refresh token. Update WITHINGS_REFRESH_TOKEN in .env: %s",
-            new_refresh_token,
-        )
+        # Withings invalidates the previous refresh token, so this MUST be persisted or the next
+        # run dies with `503 invalid refresh_token`. Never log the token value itself.
+        persist_refresh_token(new_refresh_token)
 
     # Pre-fetch existing dates
     logger.info("Pre-fetching existing body composition entries...")

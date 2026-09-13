@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import logging
+import os
 from datetime import datetime, timedelta
+from pathlib import Path
 
 import requests
 
@@ -38,6 +40,39 @@ def refresh_access_token(
     if data.get("status") != 0:
         raise RuntimeError(f"Withings token refresh failed: {data}")
     return data["body"]
+
+
+def _default_env_path() -> Path:
+    """The repo's .env, derived from this file's location (src/health_to_notion/x.py -> root)."""
+    return Path(__file__).resolve().parents[2] / ".env"
+
+
+def persist_refresh_token(new_refresh_token: str, env_path: str | Path | None = None) -> bool:
+    """Write the rotated refresh token back into .env, atomically.
+
+    Withings invalidates the previous refresh token on every refresh, so the old behaviour of only
+    *logging* the replacement guaranteed that the next run failed with `503 invalid refresh_token`
+    (which is how this integration died). Returns True when the file now holds the new token; a write
+    failure is logged and reported as False so a read-only checkout cannot break an otherwise good sync.
+    """
+    path = Path(env_path) if env_path else _default_env_path()
+    try:
+        lines = path.read_text().splitlines()
+        for i, line in enumerate(lines):
+            if line.strip().startswith("WITHINGS_REFRESH_TOKEN="):
+                lines[i] = f"WITHINGS_REFRESH_TOKEN={new_refresh_token}"
+                break
+        else:
+            lines.append(f"WITHINGS_REFRESH_TOKEN={new_refresh_token}")
+        tmp = path.with_suffix(path.suffix + ".tmp")
+        tmp.write_text("\n".join(lines) + "\n")
+        os.chmod(tmp, 0o600)
+        tmp.replace(path)
+        logger.info("Persisted rotated Withings refresh token to %s", path)
+        return True
+    except OSError as exc:
+        logger.error("Could not persist rotated Withings refresh token to %s: %s", path, exc)
+        return False
 
 
 def get_body_measurements(
